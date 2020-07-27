@@ -1,0 +1,50 @@
+git pull https://github.com/ubccr/hpc-toolset-tutorial.git
+    4  git clone https://github.com/ubccr/hpc-toolset-tutorial.git
+    5  docker-compose pull
+    6  cd hpc-toolset-tutorial/
+    7  docker-compose pull
+    8  docker-compose -version
+    9  sudo curl -L "https://github.com/docker/compose/releases/download/1.26.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   10  sudo chmod +x /usr/local/bin/docker-compose
+   11  docker-compose -version
+   12  docker-compose pull
+   13  docker service create --name registry --publish 5000:5000 registry
+   14  docker service ps registry
+   15  curl 127.0.0.1:5000/v2/_catalog
+   16  vim registry.sh
+   17  docker image ls
+   18  vim registry.sh
+   19  docker images
+   20  docker tag ldap 127.0.0.1:5000/ldap
+   21  docker ubccr/hpcts:ondemand-latest ldap 127.0.0.1:5000/ubccr/hpcts:ondemand-latest
+   22  docker tag ubccr/hpcts:ondemand-latest ldap 127.0.0.1:5000/ubccr/hpcts:ondemand-latest
+   23* docker tag ubccr/hpcts:ondemand-latest 127.0.0.1:5000/ubccr/hpcts:xdmod-latest
+   24  vim registry.sh
+   25  chmod 755 registry.sh
+   26  ./registry.sh
+   27  docker images
+   28  docker stack deploy --compose-file docker-compose.yml hpcts
+   29  vim registry.sh
+   30  docker stasck services stackdemo
+   31  docker stack services hpcts
+   32  docker stack rm hpcts
+   33  export HPCTS_VERSION=latest
+   34  export SLURM_VERSION=20.02.3
+   35  export MARIADB_VERSION=5.5
+   36  docker stack services hpcts
+   37  docker stack deploy --compose-file docker-compose.yml hpcts
+   38  docker stack services hpcts
+   39  docker node ps $(docker node ls -q)
+   
+   
+   #!/bin/bash
+
+export REGISTRY=127.0.0.1:5000
+for SERVICE in ubccr/hpcts:ondemand-latest ubccr/hpcts:xdmod-latest ubccr/hpcts:coldfront-latest ubccr/hpcts:slurm-latest ubccr/hpcts:base-latest ubccr/hpcts:ldap-
+latest mongo:3.6.18 mariadb:5.5
+do
+  docker tag $SERVICE $REGISTRY/$SERVICE
+  docker push $REGISTRY/$SERVICE
+done
+curl $REGISTRY/v2/_catalog
+   
