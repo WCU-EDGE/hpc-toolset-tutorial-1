@@ -1,176 +1,265 @@
 # Open OnDemand Tutorial
 
-- [Jupyter App Tutorial Summary](#jupyter-app-tutorial-summary)
+## Table of Contents
+
+Live tutorial steps we took during PEARC. See the PEARC video recording to follow along (with images and explanations!):
+
+- [Dashboard-developer-mode-tutorial](#dashboard-developer-mode-tutorial)
 - [Jupyter App Tutorial](#jupyter-app-tutorial)
+- [Dynamic Batch Connect Fields](#dynamic-batch-connect-fields)
 - [Passenger App Tutorial](#passenger-app-tutorial)
 - [XDMoD Integration Tutorial](#xdmod-integration-tutorial)
 
-## External links
-
-* [Online Documentation](https://osc.github.io/ood-documentation/master/)
-* [Jupyter Install Tutorial](https://osc.github.io/ood-documentation/master/app-development/tutorials-interactive-apps/add-jupyter.html)
-
-## Jupyter App Tutorial Summary
-
-This section provides a few snippets helpful for following along with the live tutorial.
-
-Login to OnDemand as hpcadmin to https://localhost:3443
-
-### Get the app working
-
-1. Develop => My Sandbox Apps
-2. Click New App
-3. Click Clone Existing App: `jupyter` and `/var/git/bc_example_jupyter`
-
-Fix environment: `source /usr/local/jupyter/2.1.4/bin/activate`
-
-
-### Modify the Partition field
-
-form.yml changes:
-
-```
-attributes:
-  custom_queue:
-    widget: "select"
-    label: "Partition"
-    options:
-      - ["Compute", "compute"]
-      - ["Debug", "debug"]
-form:
-  - custom_queue
-#   - bc_queue
-```
-
-- `custom_queue` is used instead of `partition` because of 1.8 bug that will be fixed prior to release
-
-script.yml.erb changes:
-
-```yaml
-script:
-  queue_name: "<%= custom_queue %>"
-```
-
-- the constructor for the Ruby object https://osc.github.io/ood_core/0.11.4/OodCore/Job/Script.html  shows all the options you can set in the script.yml above (https://www.rubydoc.info/gems/ood_core/OodCore/Job/Script typically shows the latest - but sometimes this service is unavailable)
-
-### Deploy to production
-
-Edit manifest:
-
-```
----
-# change the name, this is what shows up in the menu
-name: HPC Tutorial Jupyter
-# change the category just to differentiate from the system installed
-# deskop application
-category: Tutorial Apps
-# change the subcategory
-subcategory: Machine Learning
-role: batch_connect
-# change the description, this shows up when you hover over the menu item on the interactive sessions page
-description: |
-  This app will launch a Jupyter Lab or Notebootk on one or more nodes.
-
-```
-
-Deployment steps on ondemand host via Shell:
-
-    sudo mv /var/www/ood/apps/sys/jupyter /var/www/ood/apps/sys/jupyter.old
-    sudo cp -r jupyter /var/www/ood/apps/sys/jupyter
-
-- app directory names with periods in them do not display in the navbar, which is why we can rename the old app to jupyter.old
-
-
-### Set the memory for the job 
-
-form.yml changes:
-
-```
-attributes:
-  memory:
-    widget: "number_field"
-    max: 1000
-    min: 200
-    step: 200
-    value: 600
-    label: "Memory (MB)"
-    help: "RSS Memory"
-form:
-  - memory
-```
-
-- widget specifies the type of widget to be a number
-- max the maximum value, ~1 GB in this case
-- min the minimum value, 200 MB
-- step the step size when users increase or decrease the value
-- value the default value of 600 MB
-- label the for UIs label
-- help a help message
-- See https://osc.github.io/ood-documentation/master/app-development/interactive/form.html#customizing-attributes for more details about what you can set in each "attribute"
-
-script.yml.erb modifications:
-
-```
-script:
-  native:
-    - "--mem"
-    - "<%= memory %>M"
-```
-
-- script.native attributes are way for us to specify scheduler specific argument to sbatch or qsub or bsub
-- this lets you set arguments that OnDemand doesn't provide an abstraction for
-
-### Limit number of cores
-
-form.yml:
-
-```yaml
-attributes:
-  bc_num_slots:
-    max: 2
-```
-
-### Add checkbox to start JupyterLab
-
-form.yml:
-
-```
-attributes:
-  jupyterlab_switch:
-    widget: "check_box"
-    label: "Use JupyterLab instead of Jupyter Notebook?"
-    help: |
-      JupyterLab is the next generation of Jupyter, and is completely compatible with existing Jupyter Notebooks.
-form:
-  - jupyterlab_switch
-```
-
-template script.sh:
-
-```
-jupyter <%= context.jupyterlab_switch == "1" ? "lab" : "notebook" %> --config="${CONFIG_FILE}" <%= context.extra_jupyter_args %>
-```
-
-
-## Jupyter App Detailed Tutorial
-
-This tutorial will be using the the `hpcadmin` credentials listed in
+These tutorial will be using the the `hpcadmin` credentials listed in
 [Accessing the Applications](../docs/applications.md).
 
-### Getting Started
+## External links
 
-#### Login
+- [Online Documentation](https://osc.github.io/ood-documentation/master/)
+- [Jupyter Install Tutorial](https://osc.github.io/ood-documentation/master/app-development/tutorials-interactive-apps/add-jupyter.html)
 
-Now you should login to Open OnDemand through `https://localhost:3443`.  Note that you'll have to
+## Getting Started
+
+### Login
+
+Now you should login to Open OnDemand through https://localhost:3443.  Note that you'll have to
 accept the self-signed certificates from both Open OnDemand and the identity provider.
 
-#### Get a shell session
+### Get a shell session
 
 At some points during this tutorial you'll need to execute commands in a shell session.
 You can [use the shell app](https://localhost:3443/pun/sys/shell/ssh/ondemand)
 to get an ssh session in the web browser for this purpose.
 
-#### Create the jupyter application
+## Dashboard developer mode Tutorial
+
+This tutorial covers:
+
+- [Starting the dashboard in development mode](#starting-the-dashboard-in-development-mode)
+- [Changing the color of the navbar](#changing-the-navbar-color)
+- [Pinning apps to the dashboard](#pinning-apps)
+- [Changing the dashboard layout](#changing-the-dashboard-layout)
+- [Add a custom widget to the dashboard](#add-a-custom-widget-to-the-dashboard)
+
+### Starting the dashboard in development mode
+
+First we need to pull the source code from the Github Repository. Let's
+[use the shell app](https://localhost:3443/pun/sys/shell/ssh/ondemand) for this.
+
+Be sure to be on the `ondemand` host because that container has node and ruby on it,
+which we need to build the project.
+
+If you are not using the shell app, use `ssh` to connect to the `ondemand` host from the `frontend` host: `ssh ondemand`
+
+Then, do the following:
+
+```text
+git clone https://github.com/OSC/ondemand.git ~/ondemand-src-full
+mkdir -p ~/ondemand/dev
+cd ~/ondemand/dev
+ln -s ../../ondemand-src-full/apps/dashboard/ dashboard
+cd dashboard
+git checkout release_2.0
+bin/bundle config --local path vendor/bundle
+bin/setup
+```
+
+** NOTE: M1 Mac users need to run the following commands BEFORE `bin/setup`:
+
+```
+bundle config build.nokogiri --use-system-libraries
+bundle config set force_ruby_platform true
+bin/setup
+```
+
+Once you run `bin/setup` you should see a bunch of output about getting Rugy gems and building
+Node.js packages.
+
+If you've successfully setup, then so you should be able to
+[navigate to the development version of the dashboard](https://localhost:3443/pun/dev/dashboard)
+where you'll have to click the button to 'Initialize App' to move forward.
+
+That's it! At this point you should be viewing the dashboard in the development mode.  This means
+that it's _your own version_ of the dashboard. You can modify this as you see fit without having
+to escalate privileges (become root) or disrupt other users.
+
+### Changing the navbar color
+
+We'll need to create and edit an environment file for our development dashboard to read.
+
+```text
+# /home/hpcadmin/ondemand/dev/dashboard/.env.local
+
+# you can use pretty names like 'blue' or hex codes like '#5576d1' for royal blue
+# OOD_BRAND_BG_COLOR='blue'
+OOD_BRAND_BG_COLOR='#5576d1'
+```
+
+Now you may have to restart the server with the button at the top right to see the
+changes take place.
+
+![dashboard navbar button to restart the web server](imgs/restart_web_server.png)
+
+### Pinning Apps
+
+Now we're going to enable a new feature in 2.0 which is pinning app icons to the dashboard.
+
+First we're going to have to reconfigure the `OOD_CONFIG_D_DIRECTORY` environment variable.
+It defaults to `/etc/ood/config/ondemand.d`, but since we don't want to privilege escalate,
+we're going to make a new directory in our home.
+
+```text
+mkdir -p ~/ondemand/config/ondemand.d
+touch ~/ondemand/config/ondemand.d/ondemand.yml
+```
+
+```text
+# /home/hpcadmin/ondemand/dev/dashboard/.env.local
+
+OOD_CONFIG_D_DIRECTORY="/home/hpcadmin/ondemand/config/ondemand.d"
+```
+
+Now let's [edit the ondemand.yml](https://localhost:3443/pun/sys/dashboard/files/edit/home/hpcadmin/ondemand/config/ondemand.d/ondemand.yml)
+file that we initialized above to add the configuration.
+
+```yaml
+# /home/hpcadmin/ondemand/config/ondemand.d/ondemand.yml
+
+pinned_apps:
+  - 'sys/*'
+```
+
+Restart the dashboard and you should see pinned apps show up.
+
+![dashboard landing page with app icons pinned to it](imgs/pinned_apps.png)
+
+Now let's group them by their `category` by adding this configuration to the same `ondemand.yml` file.
+
+```yaml
+# /home/hpcadmin/ondemand/config/ondemand.d/ondemand.yml
+
+pinned_apps:
+  - 'sys/*'
+
+pinned_apps_group_by: 'category'
+```
+
+Another restart of the webserver will pick up these configurations and you should see pinned apps
+are now grouped by the category of the application.
+
+![dashboard landing page with groups of app icons](imgs/grouped_pinned_apps.png)
+
+See [the documentation on pinned apps](https://osc.github.io/ood-documentation/latest/customization.html#pinning-applications-to-the-dashboard)
+for more information.
+
+### Changing the dashboard layout
+
+First we're going to enable the message of the day (MOTD)
+
+Let's add these two environment variables to our `~/ondemand/dev/dashboard/.env.local` file.
+
+```text
+# /home/hpcadmin/ondemand/dev/dashboard/.env.local
+
+MOTD_PATH=/etc/motd
+MOTD_FORMAT=markdown
+```
+
+Restart your webserver and you should now see the MOTD to the right of the page.
+
+Now, just to demonstrate this feature, let's move the MOTD to the left of the page with pinned
+app icons being on the right.
+
+```yaml
+# /home/hpcadmin/ondemand/config/ondemand.d/ondemand.yml
+
+dashboard_layout:
+  rows:
+    - columns:
+        - width: 4
+          widgets: [ motd ]
+        - width: 8
+          widgets: [ pinned_apps ]
+```
+
+See the [documentation on customizing the dashboard layout](https://osc.github.io/ood-documentation/latest/customization.html#custom-layouts-in-the-dashboard)
+for more information.
+
+### Add a custom widget to the dashboard
+
+Now that we've changed the layout of the dashboard, let's extend this feature to add a brand new widget.
+
+First, we need to reconfigure where widgets are picked up from.  By default they're in `/etc/ood/config/apps/dashboard/views/widgets`,
+but because we don't want to become root to do this, we're going to reconfigure this location.
+
+So we're going to add these entries to our local environment file.
+
+```text
+# /home/hpcadmin/ondemand/dev/dashboard/.env.local
+
+OOD_LOAD_EXTERNAL_CONFIG=1
+OOD_APP_CONFIG_ROOT="/home/hpcadmin/ondemand/config"
+```
+
+Next, in a shell, let's initialize some directories and the widget file.
+
+```text
+mkdir -p ~/ondemand/config/views/widgets
+touch ~/ondemand/config/views/widgets/_hello_world.html
+```
+
+Be sure to add the underscore prefix to this filename! This is a Rails convention for partials and not a mistype
+it is indeed `_hello_world.html`.
+
+Now, we can use the [file editor to edit our new widget](https://localhost:3443/pun/sys/dashboard/files/edit/home/hpcadmin/ondemand/config/views/widgets/_hello_world.html).  Let's add this very simple div to just thank you for being here. Of course, you can put
+any text you like here. Feel free to have fun with it!
+
+```html
+<!-- /home/hpcadmin/ondemand/config/views/widgets/_hello_world.html -->
+<div class='alert alert-info text-center' style='font-size:2.2rem;'>
+    <p>Thank you for attending the PEARC 2022 Open OnDemand Tutorial!</p>
+</div>
+```
+
+Now that we have the widget, we need to add it to the layout. Let's make a new row for it and push everything
+else to the second row.  This new row will have only one twelve width column that has our new `hello_world`
+widget.
+
+```yaml
+# /home/hpcadmin/ondemand/config/ondemand.d/ondemand.yml
+
+dashboard_layout:
+  rows:
+    - columns:
+        - width: 12
+          widgets: [ hello_world ]
+    - columns:
+        - width: 4
+          widgets: [ motd ]
+        - width: 8
+          widgets: [ pinned_apps ]
+```
+
+Now your dashboard should look something like this with a brand new widget we just creating showing up on the
+dashboard.
+
+![dashboard landing page with a new custom widget](imgs/dashboard_w_new_widget.png)
+
+## Jupyter App Tutorial
+
+This tutorial covers:
+
+- [Initializing the developer application.](#create-the-jupyter-application)
+- [Debugging the app and getting it to run correctly.](#get-jupyter-working)
+- [Changing the type of a form option.](#change-bc_queue-to-a-select-field)
+- [Adding limits for form options.](#limit-bc_num_slots)
+- [Adding new form options.](#adding-a-jupyterlab-checkbox)
+- [Using native scheduler arguements](#using-script-native-attributes)
+- [Explanations of the form.yml file.](#a-closer-look-at-the-formyml)
+- [Editing the manifest.yml](#edit-the-manifest).
+- [Promoting the application to production.](#deploying-to-production)
+
+### Create the jupyter application
 
 Click on "My Sandbox Apps (Development)" from the dropdown menu "Develop" in the navigation bar
 to navigate to the sandbox app workspace.
@@ -184,19 +273,21 @@ Fill in `jupyter` as the directory name. `/var/git/bc_example_jupyter` as the Gi
 check "Create a new Git Project from this?".  Then click "Submit" to create a new development
 application.
 
-This copied what was in `/var/git/bc_example_jupyter` to `/home/hpcadmin/ondemand/dev/jupyer`.
+This copied what was in `/var/git/bc_example_jupyter` to `/home/hpcadmin/ondemand/dev/jupyter`.
 You can navigate to these files [through the Files app with this link](https://localhost:3443/pun/sys/files/fs/home/hpcadmin/ondemand/dev/jupyter/)
 or simply Press the "Files" button in Jupyter's row of the sandbox applications table.
 
 ![create sandbox app](imgs/create_sandbox_app.gif)
 
-You'll also need to setup `git` for the hpcadmin user at this point.
-
-Configure your user email and name so that you can commit changes to the jupyter app.
+You'll also need to setup `git` for the hpcadmin user at this point, so let's go ahead and do that
+and make first commit to the jupyter app as the starting point.
 
 ```shell
 git config --global user.email hpcadmin@localhost
 git config --global user.name "HPC Admin"
+cd ~/ondemand/dev/jupyter
+git add .
+git commit -m 'starting point'
 ```
 
 ### Get Jupyter Working
@@ -207,6 +298,8 @@ The example application we've created does not use the correct cluster configura
 to modify it.
 
 If you try to submit it as is, you'll get this error:
+
+![error message that reads The cluster was never set. Either set it in form.yml.erb with `cluster` or `form.cluster` or set `cluster` in submit.yml.erb.](imgs/no_cluster.png)
 
 We need to edit the `form.yml` in the appication's folder. We can navigate to the folder through the
 files app.  The URL is `https://localhost:3443/pun/sys/files/fs/home/hpcadmin/ondemand/dev/jupyter/`.
@@ -283,7 +376,7 @@ jupyter notebook --config="${CONFIG_FILE}" <%= context.extra_jupyter_args %>
 
 #### Correctly launch
 
-Now we can [launch the application again](####-Launch-the-Jupyter-Application) and it should work.
+Now we can [launch the application again](https://localhost:3443/pun/sys/dashboard/batch_connect/dev/jupyter/session_contexts/new) and it should work.
 
 When it is up and running and available to use the panel will show a "Connect to Jupyter" button.  Click this button
 and OnDemand will redirect us to Jupyter.  
@@ -321,7 +414,7 @@ The items in the form.yml directly create what's shown to the users in the form 
 Let's take a closer look at the `form.yml` that created the form you just submitted to get an
 understanding of how they relate to what's shown in the UI.
 
-This is the `form.yml` you at this point without all the comments.
+This is the `form.yml` you should have at this point without all the comments.
 
 ```yaml
 cluster: "hpc"
@@ -363,8 +456,7 @@ back and forth between the two terms in this tutorial). We've started with a fie
 is a text field, but it's likely much easier for users to simply choose the partition out of a
 select dropdown menu instead.
 
-So let's remove the `bc_queue` field in the form and replace it with a new field we'll call `custom_queue`.
-Add `custom_queue` in the form section and remove bc_queue.  
+So let's replace the `bc_queue` field in the form with a new field that we'll call `custom_queue`.
 
 We'll also add `custom_queue` to the attributes section.  Adding a field to the form section adds it to the form
 in the UI.  By default, this field will be a text field. If you want this field to be a different type of widget
@@ -394,8 +486,8 @@ Refresh the [new session form](https://localhost:3443/pun/sys/dashboard/batch_co
 and you should now see your updates.
 
 But before we submit to test them out, we'll need to reconfigure the `submit.yml.erb` to use this
-new field.  You can edit it in the
-[file editor app](https://localhost:3443/pun/sys/file-editor/edit/home/hpcadmin/ondemand/dev/jupyter/submit.yml.erb).
+new field.  You can
+[edit the submit.yml.erb in the file editor app](https://localhost:3443/pun/sys/file-editor/edit/home/hpcadmin/ondemand/dev/jupyter/submit.yml.erb).
 
 You'll need to specify the script's queue_name as the partition like so. The `script` is the logical
 "script" we're submitting to the scheduler.  And the `queue_name` is the field of the script that will
@@ -406,16 +498,17 @@ script:
   queue_name: "<%= custom_queue %>"
 ```
 
-The .erb file extension indicates this is embedded ruby file. `<%=` and `%>` are embedded ruby tags. A variable
-for each attribute defined in the form.yml can be used in this ERB file, containing the string representation
-of the value submitted by the user.
+The .erb file extension indicates this is embedded ruby file. This means that Ruby will template this file
+and turn it into a yml file that OnDemand will then read.  `<%=` and `%>` are embedded ruby tags to turn the
+variable (or expression) into a string. Anything we've defined in the `form.yml` can be used in this ERB file.
+In this example we just defined `custom_queue` in the form so we can use it directly here.
 
 If you're not super comfortable with the terminology just remember this: `custom_queue` is defined in the `form.yml`
 (the file that defines what the UI form looks like) so it can be used in the `submit.yml.erb` (the file
-that is used to configure the job that is being submitted) as `<%= custom_queue =>`.
+that is used to configure the job that is being submitted) as `<%= custom_queue %>`.
 
-When [launch the application again](####-Launch-the-Jupyter-Application) you can [login to a shell](#get-a-shell-session)
-and confirm you chose a different queue with this command.
+When [launch the application again](https://localhost:3443/pun/sys/dashboard/batch_connect/dev/jupyter/session_contexts/new) 
+you can [login to a shell](#get-a-shell-session) and confirm you chose a different queue with this command.
 
 ```shell
 [hpcadmin@ondemand ~]$ squeue -o "%j %P"
@@ -425,11 +518,11 @@ sys/dashboard/dev/jupyter debug
 
 ![make custom queue](imgs/make_custom_queue.gif)
 
-At this point, this should be the entirety of the `script.yml.erb` and `form.yml` (without comments).
+At this point, this should be the entirety of the `submit.yml.erb` and `form.yml` (without comments).
 They're given here in full if you want to copy/paste them. And remember to [save your spot](#save-your-spot)!
 
 ```yaml
-# script.yml.erb
+# submit.yml.erb
 script:
   queue_name: "<%= custom_queue %>"
 ```
@@ -456,9 +549,9 @@ form:
   - bc_email_on_started
 ```
 
-#### Limit bc_num_cores
+#### Limit bc_num_slots
 
-SLURM is configured with only 2 cores total.  If you were now to submit this app
+SLURM is configured with only 2 nodes total.  If you were now to submit this app
 with say 3 or more `bc_num_slots` it would sit in the queue forever because SLURM
 cannot find a suitable host to run it on.
 
@@ -472,19 +565,19 @@ attributes:
 ```
 
 That's it! Again, because `bc_num_slots` is convenience field, it already has a minimum of 1
-that you can't override, because it doesn't make sense to specify 0 or less cores.
+that you can't override, because it doesn't make sense to specify 0 or less nodes.
 
 #### Using script native attributes
 
 `script.native` attributes are way for us to specify _any_ arguments to the schedulers that
-we can't pre-define or have a good generic defining (like `queue_name` above).
+we can't pre-define or have a good generic definition like `queue_name` above.
 
 In this section we're going to put make OnDemand request memory through the sbatch's
 `--mem` argument.
 
 First, let's add it to the form like so.
 
-Here are descriptions of all the fields we applied to it.  Note if the label was not
+Here are descriptions of all the fields we'll apply to it.  Note if the label was not
 not defined the default 'Memory' would have been OK.  Also we don't really need the
 the help message here, it was really just for illustration.
 
@@ -515,7 +608,7 @@ Again, now to actually use the value we populate in the form, we need to use
 it in the `submit.yml.erb`.  This is where `script.native` attributes come in.
 
 ```yaml
-# script.yml.erb
+# submit.yml.erb
 script:
   native:
     - "--mem"
@@ -537,7 +630,7 @@ NAME MIN_MEMORY
 sys/dashboard/dev/jupyter 800M
 ```
 
-At this point, this should be the entirety of the `script.yml.erb` and `form.yml` (without comments).
+At this point, this should be the entirety of the `submit.yml.erb` and `form.yml` (without comments).
 They're given here in full if you want to copy/paste them. And remember to [save your spot](#save-your-spot)!
 
 ```yaml
@@ -802,7 +895,7 @@ subcategory: Machine Learning
 role: batch_connect
 # change the description, this shows up when you hover over the menu item
 description: |
-  This app will launch a Jupyter Lab or Notebootk on one or more nodes.
+  This app will launch a Jupyter Lab or Notebook on one or more nodes.
 ```
 
 If you want to change `category` and `subcategory` you can freely do so.
@@ -830,6 +923,115 @@ And that's it! All you have to do now is refresh the page and you should see you
 Jupyter system app in the menu along with your sandbox development app.
 
 ![deploy to production](imgs/deploy_to_production.gif)
+
+## Dynamic Batch Connect Fields
+
+Since 2.0 sites can enable dynamic batch connect fields through setting the `OOD_BC_DYNAMIC_JS` environment
+variable. This has already been done within these containers.
+
+```text
+# /etc/ood/config/apps/dashboard/env
+OOD_BC_DYNAMIC_JS=1
+```
+
+With this feature - client side javascript can dynamically change the form fields based on user
+choices. Sites only have to add more YAML to a `form.yml` to enable this behaviour.  Let's
+see some examples.
+
+### Changing min & max values
+
+Let's put some rules around the debug queue.  We set a static `min` and `max` of 200 and 1000
+respectively.  But in this example, we want different min and max values for the debug queue.
+
+We can configure this behaviour with these `data-min-` and `data-max-` directives attached
+to a given option.  When the `debug` queue is choosen we'll automatically set the min and
+maximum values of the `memory` field.
+
+Note that we're also setting the `compute` min and maxes again. This is currently the only way
+to reset back to defaults if there are any.
+
+```yaml
+# form.yml, only showing custom_queue for brevity.
+  custom_queue:
+    widget: "select"
+    label: "Partition"
+    options:
+      - [
+          "Compute", "compute",
+          data-min-memory: 200,         # set the compute queue back to static defaults
+          data-max-memory: 1000,
+        ]
+      - [
+          "Debug", "debug",
+          data-min-memory: 400,         # change min & max for debug queue
+          data-max-memory: 600,
+        ]
+```
+
+![A gif of a user interacting with the form with the dynamic additons described above. The default queue compute is chosen. The user can range memory form from 200 to 1000. The user chooses the debug queue. The user can now range the memory form item from 400 to 600. Switching back to the compute queue and the user can again range the memory form item from 200 to 1000.](imgs/dynamic_min_max.gif)
+
+### Changing values
+
+Let's take this a little further.  Now, when we choose `compute` or `debug` queue, let's automatically
+set the Slurm account we want to use.  Note we'll need to add `bc_account` back, as it's what we'll be
+setting.
+
+We can add the `data-set` directives on the same `custom_queue` form options.  When users choose the
+`debug` queue we'll automatically set the account to `staff`.  When we choose the `compute` queue we
+will set the `sfoster` account.
+
+```yaml
+# form.yml, only showing custom_queue for brevity.
+attributes:
+  custom_queue:
+    widget: "select"
+    label: "Partition"
+    options:
+      - [
+          "Compute", "compute",
+          data-min-memory: 200,
+          data-max-memory: 1000,
+
+          data-set-bc-account: 'sfoster'    # set the account to sfoster when using compute
+        ]
+      - [
+          "Debug", "debug",
+          data-min-memory: 400,
+          data-max-memory: 600,
+
+          data-set-bc-account: 'staff'      # set the account to staff when using debug
+        ]
+form:
+  - bc_account
+```
+
+To use the `sfoster` account you need to run these commands to add the `hpcadmin` user to
+that account.
+
+```
+sudo sacctmgr add user hpcadmin account=sfoster
+sudo sacctmgr modify user where user=hpcadmin set defaultaccount=staff
+```
+
+### Hiding form options
+
+Lastly, we can use this feature to hide and show other form fields. This can be useful when
+some options are avaialbe for somethings. For example you may want to show CUDA versions as
+a form option for GPU nodes, but not for other nodes.
+
+Add the `data-hide-bc-account` line to our `debug` form option and we'll start hiding that
+field when the debug option is chosen.
+
+```yaml
+      - [
+          "Debug", "debug",
+          data-min-memory: 400,
+          data-max-memory: 600,
+
+          data-set-bc-account: 'staff',
+          data-hide-bc-account: true,       # hide the bc_account field when this is chosen.
+        ]
+```
 
 ## Passenger app tutorial
 

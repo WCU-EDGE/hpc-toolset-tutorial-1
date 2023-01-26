@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import pexpect
 import sys
 
@@ -6,7 +6,7 @@ def main():
 
     scriptsettings = ['start', 'start', 'start', 'end', 'submit']
 
-    with open("supremm_expect_log", "w") as f:
+    with open("supremm_expect_log", "wb") as f:
         p = pexpect.spawn('supremm-setup')
         p.logfile = f
 
@@ -23,7 +23,7 @@ def main():
         p.sendline()
 
         while True:
-            i = p.expect(["Overwrite config file", "hpc"])
+            i = p.expect(["Overwrite config file", "hpc", pexpect.EOF, pexpect.TIMEOUT])
             if i > 1:
                 p.expect('Enable SUPReMM summarization for this resource?')
             if i > 5:

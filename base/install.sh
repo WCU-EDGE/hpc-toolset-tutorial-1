@@ -7,9 +7,12 @@ log_info() {
   printf "\n\e[0;35m $1\e[0m\n\n"
 }
 
-source /build/base.config
-
+ARCHTYPE=`uname -m`
 GOSU_VERSION=${GOSU_VERSION:-1.12}
+
+log_info "HPCTS Base image for $ARCHTYPE"
+
+source /build/base.config
 
 #------------------------
 # Setup system user/groups
@@ -25,7 +28,7 @@ useradd -r -g sssd -d / -s /sbin/nologin sssd
 # Install base packages
 #------------------------
 log_info "Installing base packages.."
-yum install -y \
+dnf install -y \
     openssh-server \
     sudo \
     epel-release \
@@ -33,7 +36,8 @@ yum install -y \
     vim \
     openldap-clients \
     sssd \
-    authconfig \
+    sssd-tools \
+    authselect \
     openssl \
     bash-completion
 
@@ -48,20 +52,13 @@ chgrp ssh_keys /etc/ssh/ssh_host_rsa_key
 chgrp ssh_keys /etc/ssh/ssh_host_ecdsa_key
 chgrp ssh_keys /etc/ssh/ssh_host_ed25519_key
 
+sed -i 's/ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
+
 #------------------------
 # Setup LDAP and SSSD
 #------------------------
 log_info "Configuring LDAP and SSSD"
-authconfig --enableldap \
-  --enableldapauth \
-  --ldapserver=ldap://ldap:389 \
-  --ldapbasedn="dc=example,dc=org" \
-  --enablerfc2307bis \
-  --enablesssd \
-  --enablesssdauth \
-  --kickstart \
-  --nostart \
-  --update
+authselect select sssd --force
 
 cat > /etc/openldap/ldap.conf <<EOF
 TLS_CACERTDIR /etc/openldap/cacerts
@@ -105,6 +102,9 @@ reconnection_retries = 10
 debug_level = 2
 EOF
 
+chmod 600 /etc/sssd/sssd.conf
+rm -f /var/run/nologin
+
 #------------------------
 # Setup user accounts
 #------------------------
@@ -138,7 +138,11 @@ chmod 0440 /etc/sudoers.d/90-hpcadmin
 # Install gosu
 #------------------------
 log_info "Installing gosu.."
-wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-amd64"
+if [[ "${ARCHTYPE}" = "x86_64" ]]; then
+    wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-amd64"
+elif [[ "${ARCHTYPE}" = "aarch64" ]]; then
+    wget -O /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-arm64"
+fi
 chmod +x /usr/local/bin/gosu
 gosu nobody true
 
@@ -165,5 +169,5 @@ openssl x509 -req -CA /etc/pki/tls/ca.crt -CAkey /etc/pki/tls/ca.key -CAcreatese
 cp /etc/pki/tls/ca.crt /etc/pki/ca-trust/source/anchors/
 update-ca-trust extract
 
-yum clean all
-rm -rf /var/cache/yum
+dnf clean all
+rm -rf /var/cache/dnf

@@ -12,7 +12,7 @@ If you haven't already installed and tested the required packages, please refer 
 
 ## Getting started
 
-You will need to clone the tutorial repo and then run the helper script.  The first time running this, you'll be downloading all the containers from Docker Hub.  This can take quite a long time depending on your network speed.  The images total approximately 7GB in size.  Once the containers are downloaded, they are started and the services launched.  For point of reference: on a recent test from a home fiber optic network this download and container startup process took 17 minutes.  
+You will need to clone the tutorial repo and then run the helper script.  The initial clone of the repo may take 5-10 minutes.  The first time running the helper script, you'll be downloading all the containers from Docker Hub.  This can take quite a long time depending on your network speed.  The images total approximately 13GB in size.  Once the containers are downloaded, they are started and the services launched.  For point of reference: on a recent test from a home fiber optic network with client connected over wifi this download and container startup process took 12 minutes.  
 
 NOTE: For Windows, if you haven't already done so, you will need to configure git not to convert line endings into Windows format.  Run this command using the git-bash shell application before cloning the tutorial repo:
 
@@ -28,85 +28,84 @@ $ cd hpc-toolset-tutorial
 $ ./hpcts start
 Fetching latest HPC Toolset Images..
 
-Pulling ldap      ... done
-Pulling base      ... done
-Pulling mongodb   ... done
-Pulling mysql     ... done
-Pulling slurmdbd  ... done
-Pulling slurmctld ... done
-Pulling cpn01     ... done
-Pulling cpn02     ... done
-Pulling frontend  ... done
-Pulling coldfront ... done
-Pulling ondemand  ... done
-Pulling xdmod     ... done
+[+] Running 12/12
+ - base Pulled                                                                              5.2s
+ - ondemand Pulled                                                                          5.3s
+ - cpn01 Pulled                                                                             5.3s
+ - cpn02 Pulled                                                                             5.1s
+ - mongodb Pulled                                                                           5.2s
+ - xdmod Pulled                                                                             5.1s
+ - ldap Pulled                                                                              5.2s
+ - mysql Pulled                                                                             5.2s
+ - coldfront Pulled                                                                         5.2s
+ - frontend Pulled                                                                          5.2s
+ - slurmdbd Pulled                                                                          5.1s
+ - slurmctld Pulled                                                                         5.2s
 
 Starting HPC Toolset Cluster..
 
-Creating network "hpc-toolset-tutorial_compute" with the default driver
-Creating volume "hpc-toolset-tutorial_etc_munge" with default driver
-Creating volume "hpc-toolset-tutorial_etc_slurm" with default driver
-Creating volume "hpc-toolset-tutorial_home" with default driver
-Creating volume "hpc-toolset-tutorial_var_lib_mysql" with default driver
-Creating volume "hpc-toolset-tutorial_data_db" with default driver
-Creating volume "hpc-toolset-tutorial_srv_www" with default driver
-Creating mysql   ... done
-Creating ldap    ... done
-Creating mongodb ... done
-Creating hpc-toolset-tutorial_base_1 ... done
-Creating slurmdbd                    ... done
-Creating slurmctld                   ... done
-Creating frontend                    ... done
-Creating cpn02                       ... done
-Creating cpn01                       ... done
-Creating coldfront                   ... done
-Creating xdmod                       ... done
-Creating ondemand                    ... done
+[+] Running 23/23
+ - Network hpc-toolset-tutorial_compute              Created                                0.1s
+ - Volume "hpc-toolset-tutorial_etc_slurm"           Created                                0.0s
+ - Volume "hpc-toolset-tutorial_cpn02_slurmd_state"  Created                                0.0s
+ - Volume "hpc-toolset-tutorial_slurmdbd_state"      Created                                0.0s
+ - Volume "hpc-toolset-tutorial_slurmctld_state"     Created                                0.0s
+ - Volume "hpc-toolset-tutorial_data_db"             Created                                0.0s
+ - Volume "hpc-toolset-tutorial_home"                Created                                0.0s
+ - Volume "hpc-toolset-tutorial_var_lib_mysql"       Created                                0.0s
+ - Volume "hpc-toolset-tutorial_srv_www"             Created                                0.0s
+ - Volume "hpc-toolset-tutorial_cpn01_slurmd_state"  Created                                0.0s
+ - Volume "hpc-toolset-tutorial_etc_munge"           Created                                0.0s
+ - Container mongodb                                 Started                               12.0s
+ - Container mysql                                   Started                               11.9s
+ - Container ldap                                    Started                               11.8s
+ - Container hpc-toolset-tutorial-base-1             Started                               12.3s
+ - Container slurmdbd                                Started                               13.2s
+ - Container slurmctld                               Started                               13.0s
+ - Container frontend                                Started                               15.2s
+ - Container cpn02                                   Started                               14.2s
+ - Container cpn01                                   Started                               15.2s
+ - Container ondemand                                Started                               15.2s
+ - Container coldfront                               Started                               15.7s
+ - Container xdmod                                   Started                               15.5s
 
-Coldfront URL: https://localhost:2443
+ Coldfront URL: https://localhost:2443
 
 
-OnDemand URL: https://localhost:3443
+ OnDemand URL: https://localhost:3443
 
 
-XDMoD URL: https://localhost:4443
+ XDMoD URL: https://localhost:4443
 
 
-Login to frontend: ssh -p 6222 hpcadmin@localhost
-
+ Login to frontend: ssh -p 6222 hpcadmin@localhost
 
 ```
 
 **NOTE:  Despite seeing this output with URLs, the processes on these containers may not be fully running yet.  Depending on the speed of your computer, starting up the processes may take a few minutes (or even up to 10 minutes).  Use the command below to check the docker logs if the websites are not yet displaying.**
 
-NOTE: Windows users will get several pop-up messages from Docker Desktop during this process asking to allow local system access to the Docker containers.  Please click the "Share it" button:
+### Windows Errors  
+
+NOTE: Windows users should get several pop-up messages from Docker Desktop during this process asking to allow local system access to the Docker containers.  Please click the "Share it" button:
 ![](windows_sharing.PNG)
 
-
-### Error when starting up tutorial containers
-
-If you get this error when starting the tutorial:  
+If you have notifications blocked, you may not see these pop-ups and the authorization will eventually time out.  If this happens, you will get this type of error message:    
 
 ```
-ERROR: Couldn't connect to Docker daemon at http+docker://localunixsocket - is it running?
+Error response from daemon: user declined directory sharing C:\Users\path_to_my_folder
+```
+Open Docker Desktop, navigate to Settings - Resources, and click on File Sharing.  Then add the directory where you've cloned the HPC Toolset Tutorial and click "Apply & Restart"
 
-or  
-
-ERROR: Couldn't connect to Docker daemon at http+docker://localhost - is it running?
+Re-run:  
+```
+./hpcts start  
 ```
 
-Try stopping and starting Docker (restart doesn't usually fix the problem).  Commands for this differ depending on operating system.  
-
-If the error persists, try:  
-
+If this doesn't work, please run:  
 ```
-export DOCKER_HOST=127.0.0.1
+./hpcts destroy  
+./hpcts start  
 ```
-
-NOTE: this is only necessary on some systems so don't use it if the previous command works
-
-**Sometimes restarting your operating system is the only solution.**
-
 
 ### Docker Logs
 
@@ -132,13 +131,15 @@ xdmod        | ---> Starting XDMoD...
 
 ## Something still not right?
 
+Please see our [troubleshooting section](docker_tips.md) for more info.
+
 If errors are showing up in the logs or the services have not all started, check to see which images have been downloaded and which containers are running.  This is what you should see:  
 ![](containers_images.PNG)  
 
-If not, run the 'stop' option of the helper script to shut everything down and remove all volumes.  Then start everything back up again:  
+If not, run the 'destroy' option of the helper script to shut everything down and remove all volumes.  Then start everything back up again:  
 
 ```
-$ ./hpcts stop
+$ ./hpcts destroy
 $ docker container list
 (Should show no containers)
 
@@ -161,15 +162,19 @@ Then start it all up again:
 
 Since you already downloaded all the images, this command will only startup the containers and services which only takes a few minutes.  
 
-To completely start over, run:  
+To completely start over and re-download all images, run the cleanup script and then startup script:  
 
 ```
 $ ./hpcts cleanup
 $ ./hpcts start
 ```
+NOTE:  The cleanup script removes ALL containers, images and volumes except the mongo and mariadb images.  If you're getting database errors we recommend you remove these manually with these docker commands:  
 
-Just in case none of this worked here are [more Docker tips](docker_tips.md)
-
+```
+$ docker image list  
+$ docker image rm [IMAGE IDs for mongo and mariadb images]  
+$ ./hpcts start  
+```
 
 ## Tutorial Navigation
 [Next - Accessing the Applications](applications.md)  

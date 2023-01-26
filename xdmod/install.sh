@@ -9,11 +9,7 @@ log_info() {
 
 log_info "Installing required packages for xdmod.."
 
-#------------------------
-# Open XDMoD has several dependencies that are satisfied by
-# packages available in EPEL
-#------------------------
-yum install -y epel-release
+ARCHTYPE=`uname -m`
 
 #------------------------
 # For the purpose of the tutorial we install some extra packages that
@@ -23,11 +19,11 @@ yum install -y epel-release
 # needed for automated setup, not for supremm
 #------------------------
 
-yum install -y \
+dnf install -y \
     expect \
-    python2-pip
-
-pip install pexpect==4.4.0
+    python3-pexpect \
+    php-pear \
+    php-devel
 
 #------------------------
 # Open XDMoD Installation
@@ -41,20 +37,10 @@ pip install pexpect==4.4.0
 # be installed in the same container.  In a production deployment they may be installed
 # on separate hosts.
 #------------------------
-yum install -y https://tas-tools-ext-01.ccr.xdmod.org/9.0.0rc3/xdmod-9.0.0-0.3.rc3.el7.noarch.rpm \
-               https://tas-tools-ext-01.ccr.xdmod.org/9.0.0rc3/xdmod-supremm-9.0.0-0.3.rc3.el7.noarch.rpm \
-               https://github.com/ubccr/supremm/releases/download/1.4.0rc01/supremm-1.4.0-rc01.el7.x86_64.rpm
-
-#------------------------
-# phantomjs is used by Open XDMoD for chart image export and for the
-# report generator.
-#------------------------
-wget -O /var/tmp/phantomjs-2.1.1-linux-x86_64.tar.bz2 https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2
-pushd /var/tmp
-tar xvjf phantomjs-2.1.1-linux-x86_64.tar.bz2 phantomjs-2.1.1-linux-x86_64/bin/phantomjs
-cp phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/
-rm -Rf phantomjs-2.1.1-linux-x86_64*
-popd
+dnf install -y https://github.com/ubccr/xdmod/releases/download/v10.0.0-beta5-el8/xdmod-10.0.0-1.5.beta5.el8.noarch.rpm \
+               https://github.com/ubccr/xdmod-ondemand/releases/download/v10.0.0/xdmod-ondemand-10.0.0-1.0.beta1.el8.noarch.rpm \
+               https://github.com/ubccr/xdmod/releases/download/v10.0.0-beta4-el8/xdmod-supremm-10.0.0-1.4.beta4.el8.noarch.rpm \
+               https://github.com/ubccr/supremm/releases/download/2.0.0-beta3/supremm-2.0.0-1.0_beta3.el8."$ARCHTYPE".rpm
 
 #------------------------
 # The Job Performance software uses MongoDB to store the job-level performance
@@ -63,10 +49,18 @@ popd
 # The appropriate mongo shell is also installed so it can be used as part of the setup.
 #------------------------
 
-yum install -y \
-    https://repo.mongodb.org/yum/redhat/7/mongodb-org/3.6/x86_64/RPMS/mongodb-org-shell-3.6.18-1.el7.x86_64.rpm
+dnf install -y \
+    https://repo.mongodb.org/yum/redhat/8/mongodb-org/5.0/${ARCHTYPE}/RPMS/mongodb-org-shell-5.0.9-1.el8.${ARCHTYPE}.rpm
 
-pip install pymongo --upgrade
+
+
+#------------------------
+#
+#------------------------
+pecl install mongodb
+echo "extension=mongodb.so" >> /etc/php.d/40-mongodb.ini
+
+pip3 install pymongo==3.7.0 --upgrade
 
 #------------------------
 # O/S package configuration.
@@ -91,7 +85,30 @@ sed -i 's/.*date.timezone[[:space:]]*=.*/date.timezone = UTC/' /etc/php.ini
 rm -f /etc/httpd/conf.d/ssl.conf
 
 #------------------------
+# We need to make sure that we have access to this file so that SSO works.
+#------------------------
+if [[ -f /etc/pki/tls/private/localhost.key ]]; then
+    chown root:apache /etc/pki/tls/private/localhost.key
+    chmod 750         /etc/pki/tls/private/localhost.key
+fi
+
+#------------------------
 # These commands remove cached files to reduce the overall image size.
 #------------------------
-yum clean all
-rm -rf /var/cache/yum
+dnf clean all
+rm -rf /var/cache/dnf
+
+#------------------------
+# OnDemand Module Setup:
+# Create the directory that will contain the Open OnDemand log files for use with
+# the Open OnDemand XDMoD Module. Also copy in some 'historical' data for
+# display during the tutorial.
+#------------------------
+mkdir -p /scratch/ondemand/logs
+cp /srv/xdmod/historical/localhost_access_ssl-20220706.log /scratch/ondemand/logs
+chmod 750 /scratch/ondemand/logs
+# note - the file permissions will be set to hpcadmin:xdmod after the hpcadmin
+#        user has been created later in the build
+
+
+mkdir -p /srv/xdmod/backups

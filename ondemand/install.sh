@@ -7,15 +7,6 @@ log_info() {
   printf "\n\e[0;35m $1\e[0m\n\n"
 }
 
-log_info "Installing required packages for Ondemand.."
-yum install -y \
-    centos-release-scl \
-    https://yum.osc.edu/ondemand/latest/ondemand-release-web-latest-1-6.noarch.rpm
-
-yum install -y \
-    ondemand \
-    ondemand-dex
-
 log_info "Setting up Ondemand"
 mkdir -p /etc/ood/config/clusters.d
 mkdir -p /etc/ood/config/apps/shell
@@ -28,6 +19,7 @@ echo "OOD_SSHHOST_ALLOWLIST=ondemand:cpn01:cpn02" >> /etc/ood/config/apps/shell/
 echo "OOD_DEV_SSH_HOST=ondemand" >> /etc/ood/config/apps/dashboard/env
 echo "MOTD_PATH=/etc/motd" >> /etc/ood/config/apps/dashboard/env
 echo "MOTD_FORMAT=markdown" >> /etc/ood/config/apps/dashboard/env
+echo "OOD_BC_DYNAMIC_JS=1" >> /etc/ood/config/apps/dashboard/env
 
 log_info "Configuring Ondemand ood_portal.yml .."
 
@@ -84,11 +76,11 @@ EOF
 log_info "Generating new httpd24 and dex configs.."
 /opt/ood/ood-portal-generator/sbin/update_ood_portal
 
-yum clean all
-rm -rf /var/cache/yum
-
 log_info "Adding new theme to dex"
 sed -i "s/theme: ondemand/theme: hpc-coop/g" /etc/ood/dex/config.yaml
+
+dnf clean all
+rm -rf /var/cache/dnf
 
 log_info "Cloning repos to assist with app development.."
 mkdir -p /var/git

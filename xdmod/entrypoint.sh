@@ -74,7 +74,22 @@ then
         export TERMINFO=/bin/bash
         export TERM=linux
         /srv/xdmod/scripts/supremm.py
+
+        echo "---> XDMoD Open OnDemand module setup"
+        expect /srv/xdmod/scripts/xdmod-setup-ondemand.tcl | col -b
+
+        echo "---> XDMoD Open OnDemand ingest historical data"
+        chown hpcadmin:xdmod -R /scratch/ondemand/logs
+        sudo -u xdmod xdmod-ondemand-ingestor -r ondemand -u https://localhost:3443 -d /scratch/ondemand/logs
+        sudo -u xdmod xdmod-ingestor
+        sudo -u xdmod xdmod-ondemand-ingestor -r ondemand -u https://localhost:3443 -d /scratch/ondemand/logs
+
+        echo "---> Make sure we have a place to keep our backups"
+        mkdir -p /srv/xdmod/backups
     fi
+    echo "---> Staring php-fpm"
+    mkdir -p /run/php-fpm
+    php-fpm
 
     echo "---> Starting HTTPD on xdmod..."
     # Sometimes on shutdown pid still exists, so delete it
